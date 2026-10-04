@@ -82,6 +82,9 @@ export function PosPage() {
         payment_method: paymentMethod,
         items: cart.map(({ product, quantity }) => ({ product_id: product.id, quantity })),
       })
+      setProducts((current) => current.map((product) =>
+        created.items?.find((item) => item.product_id === product.id)?.product ?? product,
+      ))
       setSale(created)
       setCart([])
     } catch (saleError) { setError(getErrorMessage(saleError, 'No se pudo confirmar la venta.')) }

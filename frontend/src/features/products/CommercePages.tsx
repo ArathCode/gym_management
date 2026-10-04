@@ -89,7 +89,11 @@ export function ProductFormPage() {
         <label>SKU / código de barras<input required value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }} /></label>
         <small>Escribe el SKU o escanéalo con el lector; el valor se guardará como código del producto.</small><FieldError>{errors.sku}</FieldError>
         <label>ID de categoría (opcional)<input type="number" min="1" value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} /></label>
-        <label>Tipo de venta<select value={form.sale_type} onChange={(e) => setForm({ ...form, sale_type: e.target.value })}><option value="piece">Pieza</option><option value="weight">Granel/peso</option><option value="scoop">Scoop</option></select></label>
+        <label>Tipo de venta<select value={form.sale_type} onChange={(e) => setForm((current) => ({
+          ...current,
+          sale_type: e.target.value,
+          inventory_unit: e.target.value === 'piece' ? 'unit' : 'gram',
+        }))}><option value="piece">Pieza</option><option value="weight">Granel/peso</option><option value="scoop">Scoop</option></select></label>
         <label>Unidad de inventario<select value={form.inventory_unit} onChange={(e) => setForm({ ...form, inventory_unit: form.sale_type === 'scoop' ? 'gram' : e.target.value })}>
           {form.sale_type === 'scoop' ? <option value="gram">Gramos</option> : <><option value="unit">Pieza (unit)</option><option value="gram">Gramos</option><option value="ml">Mililitros</option></>}
         </select></label><FieldError>{errors.inventory_unit}</FieldError>

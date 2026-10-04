@@ -1,8 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+
 :root {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'DM Sans', 'Avenir Next', sans-serif;
   line-height: 1.5;
   color: #171717;
-  background: #fff;
+  background: #f7f8fa;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -22,6 +24,7 @@ body {
 
 body {
   min-height: 100vh;
+  background: #f7f8fa;
 }
 
 button,

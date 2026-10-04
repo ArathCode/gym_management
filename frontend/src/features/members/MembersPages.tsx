@@ -1,8 +1,9 @@
 import { startTransition, useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { CreditCard, Eye, Mail, Pencil, Phone, Plus, Search } from 'lucide-react'
 import JsBarcode from 'jsbarcode'
-import { ErrorMessage, FieldError, Loading, EmptyState, Page, Pagination, Table } from '../../components/ui'
+import { ErrorMessage, FieldError, Loading, EmptyState, Page, Pagination } from '../../components/ui'
 import { membersApi } from '../../services/membersApi'
 import type { Member, PageMeta } from '../../types/api'
 import { formatDate, getErrorMessage, getFieldErrors } from '../../utils/errors'
@@ -25,27 +26,52 @@ export function MembersPage() {
   }, [search, status, page])
 
   return (
-    <Page title="Miembros" actions={<Link className="button-link" to="/members/new">Nuevo miembro</Link>}>
-      <div className="filters">
-        <label>Buscar <input aria-label="Buscar miembros" value={search} onChange={(event) => { setPage(1); setSearch(event.target.value) }} /></label>
-        <label>Estado <select value={status} onChange={(event) => { setPage(1); setStatus(event.target.value) }}>
-          <option value="">Todos</option><option value="active">Activo</option><option value="inactive">Inactivo</option>
-        </select></label>
+    <Page title="Miembros">
+      <div className="members-view">
+        <p className="members-subtitle">Gestiona los miembros de tu gimnasio.</p>
+        <div className="members-toolbar">
+          <label className="member-search"><Search size={19} aria-hidden="true" />
+            <input aria-label="Buscar miembros" placeholder="Buscar" value={search} onChange={(event) => { setPage(1); setSearch(event.target.value) }} />
+          </label>
+          <label className="member-status">Estado
+            <select value={status} onChange={(event) => { setPage(1); setStatus(event.target.value) }}>
+              <option value="">Todos</option><option value="active">Activo</option><option value="inactive">Inactivo</option>
+            </select>
+          </label>
+          <Link className="button-link member-create" to="/members/new"><Plus size={20} strokeWidth={2.5} aria-hidden="true" />Nuevo miembro</Link>
+        </div>
+        {loading ? <Loading /> : error ? <ErrorMessage>{error}</ErrorMessage> : members.length === 0 ? <EmptyState>No hay miembros.</EmptyState> : (
+          <div className="member-grid">
+            {members.map((member) => {
+              const initials = `${member.first_name.trim().charAt(0)}${member.last_name.trim().charAt(0)}`.toLocaleUpperCase()
+              return (
+                <article className="member-card" key={member.id}>
+                  <div className="member-card-heading">
+                    <span className="member-avatar" aria-hidden="true">{initials}</span>
+                    <div className="member-identity">
+                      <h2>{member.first_name} {member.last_name}</h2>
+                      <span className="member-code">Código: {member.public_code}</span>
+                    </div>
+                    <span className={`member-status-badge ${member.status === 'active' ? 'is-active' : 'is-inactive'}`}>
+                      <span aria-hidden="true" />{member.status === 'active' ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+                  <div className="member-contact">
+                    <p><Phone size={16} aria-hidden="true" /><span>{member.phone || 'Sin teléfono'}</span></p>
+                    <p><Mail size={16} aria-hidden="true" /><span>{member.email || 'Sin correo'}</span></p>
+                  </div>
+                  <div className="member-actions">
+                    <Link className="member-action-primary" to={`/members/${member.id}`}><Eye size={17} aria-hidden="true" /><span>Ver</span></Link>
+                    <Link to={`/members/${member.id}/credential`}><CreditCard size={17} aria-hidden="true" /><span>Credencial</span></Link>
+                    <Link to={`/members/${member.id}/edit`}><Pencil size={16} aria-hidden="true" /><span>Editar</span></Link>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
+        <Pagination meta={meta} onChange={setPage} />
       </div>
-      {loading ? <Loading /> : error ? <ErrorMessage>{error}</ErrorMessage> : members.length === 0 ? <EmptyState>No hay miembros.</EmptyState> : (
-        <Table><thead><tr><th>Código</th><th>Nombre</th><th>Teléfono</th><th>Email</th><th>Estado</th><th>Acciones</th></tr></thead>
-          <tbody>{members.map((member) => <tr key={member.id}>
-            <td>{member.public_code}</td><td>{member.first_name} {member.last_name}</td><td>{member.phone || '—'}</td><td>{member.email || '—'}</td><td>{member.status}</td>
-            <td>
-              <div className="button-row">
-                <Link to={`/members/${member.id}`}>Ver</Link>
-                <Link to={`/members/${member.id}/credential`}>Ver credencial</Link>
-              </div>
-            </td>
-          </tr>)}</tbody>
-        </Table>
-      )}
-      <Pagination meta={meta} onChange={setPage} />
     </Page>
   )
 }

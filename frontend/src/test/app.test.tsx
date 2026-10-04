@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import App from '../App'
 import { AccessPage } from '../features/access/AccessPage'
-import { MemberCredentialPage, MemberFormPage } from '../features/members/MembersPages'
+import { MemberCredentialPage, MemberFormPage, MembersPage } from '../features/members/MembersPages'
 import { PosPage } from '../features/sales/PosPage'
 import { InventoryPage } from '../features/products/CommercePages'
 import { api } from '../services/api'
@@ -63,6 +63,27 @@ describe('Authentication and protected routes', () => {
 })
 
 describe('Main operation flows', () => {
+  it('renders member cards with actions and retains the status filter', async () => {
+    vi.mocked(membersApi.list).mockResolvedValue({
+      data: [{
+        id: 12, public_code: 'M-001', barcode_value: 'MBR-001', first_name: 'Ana', last_name: 'Lopez',
+        phone: '5550101001', email: 'ana@example.test', birth_date: null, status: 'active', registered_at: null,
+      }],
+      meta: { current_page: 1, per_page: 15, total: 1, last_page: 1 },
+    })
+
+    render(<MemoryRouter><MembersPage /></MemoryRouter>)
+
+    expect(await screen.findByRole('heading', { name: 'Ana Lopez' })).toBeInTheDocument()
+    expect(screen.getByText('Código: M-001')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver' })).toHaveAttribute('href', '/members/12')
+    expect(screen.getByRole('link', { name: 'Credencial' })).toHaveAttribute('href', '/members/12/credential')
+    expect(screen.getByRole('link', { name: 'Editar' })).toHaveAttribute('href', '/members/12/edit')
+
+    fireEvent.change(screen.getByLabelText('Estado'), { target: { value: 'inactive' } })
+    await waitFor(() => expect(membersApi.list).toHaveBeenLastCalledWith({ search: undefined, status: 'inactive', page: 1 }))
+  })
+
   it('submits the member form and navigates to the created member', async () => {
     vi.mocked(membersApi.create).mockResolvedValue({
       id: 12, public_code: 'M-12', barcode_value: 'MBR-12', first_name: 'Ana', last_name: 'Lopez',
@@ -127,9 +148,11 @@ describe('Main operation flows', () => {
       sale_price: '20.00', cost_price: '10.00', stock: '6.00', minimum_stock: '1.00', portion_size: '1.00', is_active: true,
     }
     vi.mocked(commerceApi.products).mockResolvedValue({ data: [product], meta: { current_page: 1, per_page: 15, total: 1, last_page: 1 } })
+    const updatedProduct = { ...product, stock: '5.00' }
     vi.mocked(commerceApi.createSale).mockResolvedValue({
       id: 21, member_id: null, subtotal: '20.00', discount: '0.00', total: '20.00',
       payment_method: 'cash', status: 'completed', sold_at: '2026-10-03T12:00:00Z',
+      items: [{ id: 1, product_id: product.id, quantity: '1.00', unit_price: '20.00', subtotal: '20.00', inventory_quantity: '1.00', product: updatedProduct }],
     })
 
     render(<MemoryRouter><PosPage /></MemoryRouter>)
@@ -142,6 +165,7 @@ describe('Main operation flows', () => {
       items: [{ product_id: product.id, quantity: 1 }],
     })
     expect(screen.getByText(/Venta #21 confirmada/)).toBeInTheDocument()
+    expect(await screen.findByText('5.00')).toBeInTheDocument()
   })
 
   it('adds a POS product by scanned SKU while keeping name search available', async () => {

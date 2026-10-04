@@ -1,23 +1,41 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import {
+  BarChart3,
+  ChevronDown,
+  CreditCard,
+  Dumbbell,
+  Ellipsis,
+  House,
+  LogOut,
+  Package,
+  QrCode,
+  ShoppingCart,
+  UsersRound,
+} from 'lucide-react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../app/useAuth'
 import { getErrorMessage } from '../utils/errors'
 
-const links = [
-  ['/', 'Inicio'],
-  ['/members', 'Miembros'],
-  ['/membership-plans', 'Planes'],
-  ['/payments', 'Pagos'],
-  ['/access', 'Accesos'],
-  ['/products', 'Productos'],
-  ['/inventory', 'Inventario'],
-  ['/pos', 'Punto de venta'],
-  ['/sales', 'Ventas'],
-  ['/reports', 'Reportes'],
+const primaryLinks = [
+  { to: '/', label: 'Inicio', Icon: House, end: true },
+  { to: '/members', label: 'Miembros', Icon: UsersRound },
+  { to: '/payments', label: 'Pagos', Icon: CreditCard },
+  { to: '/access', label: 'Accesos', Icon: QrCode },
+  { to: '/pos', label: 'Punto de venta', Icon: ShoppingCart },
+  { to: '/reports', label: 'Reportes', Icon: BarChart3 },
+]
+
+const moreLinks = [
+  { to: '/membership-plans', label: 'Planes', Icon: Dumbbell },
+  { to: '/products', label: 'Productos', Icon: Package },
+  { to: '/inventory', label: 'Inventario', Icon: Package },
+  { to: '/sales', label: 'Ventas', Icon: ShoppingCart },
 ]
 
 export function AppLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const moreIsActive = moreLinks.some(({ to }) => pathname === to || pathname.startsWith(`${to}/`))
 
   const handleLogout = async () => {
     try {
@@ -34,15 +52,37 @@ export function AppLayout() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <NavLink className="brand" to="/">Gym Management</NavLink>
+        <NavLink className="brand" to="/" aria-label="Moicano Boxing Club, inicio">
+          <span className="brand-mark" aria-hidden="true" />
+          <span className="brand-wordmark"><strong>MOICANO</strong><small>BOXING CLUB</small></span>
+        </NavLink>
         <nav className="main-nav" aria-label="Navegación principal">
-          {links.map(([to, label]) => (
-            <NavLink key={to} to={to} end={to === '/'}>{label}</NavLink>
-          ))}
+          <div className="nav-pill">
+            {primaryLinks.map(({ to, label, Icon, end }) => (
+              <NavLink key={to} to={to} end={end} className={({ isActive }) => isActive ? 'active' : undefined}>
+                <Icon size={19} strokeWidth={2.4} aria-hidden="true" />
+                <span>{label}</span>
+              </NavLink>
+            ))}
+            <details className={`nav-more${moreIsActive ? ' active' : ''}`}>
+              <summary aria-label="Más secciones">
+                <Ellipsis size={20} strokeWidth={2.4} aria-hidden="true" />
+                <span>Más</span>
+                <ChevronDown className="more-chevron" size={13} aria-hidden="true" />
+              </summary>
+              <div className="more-menu">
+                {moreLinks.map(({ to, label, Icon }) => (
+                  <NavLink key={to} to={to} className={({ isActive }) => isActive ? 'active' : undefined}>
+                    <Icon size={17} aria-hidden="true" />{label}
+                  </NavLink>
+                ))}
+              </div>
+            </details>
+          </div>
         </nav>
         <div className="user-actions">
-          <span>{user?.name}</span>
-          <button className="button-secondary" onClick={handleLogout}>Cerrar sesión</button>
+          <span className="user-chip"><span className="user-avatar" aria-hidden="true">{user?.name?.charAt(0) || 'U'}</span><span>{user?.name}</span></span>
+          <button className="button-secondary logout-button" onClick={handleLogout}><LogOut size={16} aria-hidden="true" /><span>Cerrar sesión</span></button>
         </div>
       </header>
       <main className="content">
