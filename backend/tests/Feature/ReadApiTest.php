@@ -265,6 +265,70 @@ class ReadApiTest extends TestCase
         $this->assertDatabaseHas('products', ['id' => $product->id]);
     }
 
+    public function test_payment_list_can_filter_by_status_and_method(): void
+    {
+        $member = Member::query()->create([
+            'public_code' => 'M-PAY-FILTER',
+            'barcode_value' => 'BC-PAY-FILTER',
+            'first_name' => 'Filter',
+            'last_name' => 'Member',
+        ]);
+        Payment::query()->create([
+            'member_id' => $member->id,
+            'amount' => 10,
+            'payment_method' => 'card',
+            'status' => 'partial',
+            'paid_at' => now(),
+        ]);
+        Payment::query()->create([
+            'member_id' => $member->id,
+            'amount' => 20,
+            'payment_method' => 'cash',
+            'status' => 'paid',
+            'paid_at' => now(),
+        ]);
+
+        $this->getJson('/api/payments?status=partial&payment_method=card')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.status', 'partial')
+            ->assertJsonPath('data.0.payment_method', 'card');
+    }
+
+    public function test_sales_list_can_filter_by_search_status_and_method(): void
+    {
+        $member = Member::query()->create([
+            'public_code' => 'M-SALE-FILTER',
+            'barcode_value' => 'BC-SALE-FILTER',
+            'first_name' => 'Sale',
+            'last_name' => 'Member',
+        ]);
+        Sale::query()->create([
+            'member_id' => $member->id,
+            'subtotal' => 10,
+            'discount' => 0,
+            'total' => 10,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'sold_at' => now(),
+        ]);
+        Sale::query()->create([
+            'member_id' => $member->id,
+            'subtotal' => 20,
+            'discount' => 0,
+            'total' => 20,
+            'payment_method' => 'cash',
+            'status' => 'cancelled',
+            'sold_at' => now(),
+        ]);
+
+        $this->getJson('/api/sales?search=M-SALE-FILTER&status=completed&payment_method=card')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.payment_method', 'card')
+            ->assertJsonPath('data.0.status', 'completed');
+    }
+
     private function createProduct(string $sku, string $name): Product
     {
         return Product::query()->create([

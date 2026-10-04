@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { EmptyState, ErrorMessage, Loading, Page, Table } from '../../components/ui'
+import { Minus, Package, Plus, Search, Trash2 } from 'lucide-react'
+import { EmptyState, ErrorMessage, Loading, Page } from '../../components/ui'
 import { commerceApi } from '../../services/commerceApi'
 import type { PaymentMethod, Product, Sale } from '../../types/api'
 import { formatMoney, getErrorMessage } from '../../utils/errors'
@@ -92,47 +93,56 @@ export function PosPage() {
   }
 
   return (
-    <Page title="Punto de venta">
+    <Page title="Punto de venta" description="Escanea o selecciona productos para iniciar una venta.">
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       {sale ? <div className="success-message" role="status">Venta #{sale.id} confirmada por {formatMoney(sale.total)}. <Link to={`/sales/${sale.id}`}>Ver detalle</Link></div> : null}
       <div className="pos-grid">
-        <section>
-          <h2>Productos</h2>
-          <form className="filters" onSubmit={scanProduct}>
+        <section className="pos-products-panel">
+          <div className="pos-section-heading"><div><h2>Productos</h2><p>Selecciona un artículo para agregarlo al carrito.</p></div><span>{products.length} productos</span></div>
+          <form className="filters pos-scan-form" onSubmit={scanProduct}>
             <label>Escanear SKU / código de barras
               <input ref={scanInput} value={scannedSku} onChange={(e) => setScannedSku(e.target.value)} placeholder="Escanea o escribe el SKU" />
             </label>
             <button disabled={scanPending || !scannedSku.trim()}>{scanPending ? 'Buscando...' : 'Agregar por código'}</button>
           </form>
-          <label>Buscar producto <input value={search} onChange={(e) => setSearch(e.target.value)} /></label>
+          <label className="pos-search"><Search size={18} aria-hidden="true" /><input aria-label="Buscar producto" placeholder="Buscar producto" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
           {loading ? <Loading /> : products.length === 0 ? <EmptyState>No se encontraron productos activos.</EmptyState> : (
-            <Table><thead><tr><th>Producto</th><th>Precio</th><th>Existencia</th><th /></tr></thead>
-              <tbody>{products.map((product) => <tr key={product.id}>
-                <td>{product.name} ({product.sale_type === 'scoop' ? `${product.portion_size} ${product.inventory_unit}/scoop` : product.inventory_unit})</td>
-                <td>{formatMoney(product.sale_price)}</td><td>{product.stock}</td><td><button onClick={() => add(product)}>Agregar</button></td>
-              </tr>)}</tbody>
-            </Table>
+            <div className="pos-product-grid">
+              {products.map((product) => (
+                <button className="pos-product-card" type="button" key={product.id} aria-label={`Agregar ${product.name}`} onClick={() => add(product)}>
+                  <span className="pos-product-icon"><Package size={20} aria-hidden="true" /></span>
+                  <span className="pos-product-name">{product.name}</span>
+                  <span className="pos-product-category">{product.category_id ? `Categoría #${product.category_id}` : 'Producto'}</span>
+                  <span className="pos-product-price">{formatMoney(product.sale_price)}{product.sale_type === 'scoop' ? ' / scoop' : product.sale_type === 'piece' ? ' / unidad' : ` / ${product.inventory_unit}`}</span>
+                  <span className="pos-product-stock">{product.sale_type === 'scoop' ? 'Por scoop · ' : product.sale_type === 'weight' ? 'A granel · ' : ''}{product.stock} {product.inventory_unit} disponibles</span>
+                  <span className="pos-product-add"><Plus size={16} aria-hidden="true" />Agregar</span>
+                </button>
+              ))}
+            </div>
           )}
         </section>
-        <section>
-          <h2>Carrito</h2>
+        <section className="pos-cart-panel">
+          <div className="pos-section-heading"><div><h2>Carrito</h2><p>{cart.length} artículos</p></div></div>
           {cart.length === 0 ? <EmptyState>Agrega productos para comenzar.</EmptyState> : (
-            <Table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th /></tr></thead>
-              <tbody>{cart.map(({ product, quantity }) => <tr key={product.id}>
-                <td>{product.name}</td>
-                <td><input aria-label={`Cantidad ${product.name}`} type="number" min="0.01" step="0.01" value={quantity} onChange={(e) => updateQuantity(product.id, Number(e.target.value))} /></td>
-                <td>{formatMoney(product.sale_price)}</td><td><button className="button-secondary" onClick={() => updateQuantity(product.id, 0)}>Quitar</button></td>
-              </tr>)}</tbody>
-            </Table>
+            <div className="pos-cart-list">
+              {cart.map(({ product, quantity }) => (
+                <article className="pos-cart-item" key={product.id}>
+                  <div className="pos-cart-item-info"><strong>{product.name}</strong><span>{formatMoney(product.sale_price)} c/u</span></div>
+                  <label>Cantidad<input aria-label={`Cantidad ${product.name}`} type="number" min="0.01" step={product.sale_type === 'piece' || product.sale_type === 'scoop' ? '1' : '0.01'} value={quantity} onChange={(e) => updateQuantity(product.id, Number(e.target.value))} /></label>
+                  <strong className="pos-line-total">{formatMoney(Number(product.sale_price) * quantity)}</strong>
+                  <button className="button-icon button-secondary" type="button" aria-label={`Quitar ${product.name}`} onClick={() => updateQuantity(product.id, 0)}><Trash2 size={17} aria-hidden="true" /></button>
+                </article>
+              ))}
+            </div>
           )}
-          <p>Estimado: {formatMoney(estimate)} <small>(importe definitivo devuelto por Laravel)</small></p>
-          <form onSubmit={submit}>
+          <div className="pos-total"><span>Total estimado</span><strong>{formatMoney(estimate)}</strong><small>El importe definitivo lo confirma Laravel.</small></div>
+          <form className="pos-checkout" onSubmit={submit}>
             <label>Método de pago<select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
               <option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option><option value="other">Otro</option>
             </select></label>
             <div className="button-row">
-              <button disabled={pending || cart.length === 0}>{pending ? 'Confirmando...' : 'Confirmar venta'}</button>
-              <button className="button-secondary" type="button" disabled={!cart.length || pending} onClick={() => setCart([])}>Limpiar carrito</button>
+              <button className="pos-charge-button" disabled={pending || cart.length === 0}>{pending ? 'Procesando...' : 'Cobrar'}</button>
+              <button className="button-secondary" type="button" disabled={!cart.length || pending} onClick={() => setCart([])}><Minus size={16} aria-hidden="true" />Limpiar</button>
               {sale ? <button className="button-secondary" type="button" onClick={() => navigate(`/sales/${sale.id}`)}>Detalle de venta</button> : null}
             </div>
           </form>

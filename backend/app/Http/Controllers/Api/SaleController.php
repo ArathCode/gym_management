@@ -20,17 +20,33 @@ class SaleController extends Controller
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'status' => ['nullable', 'in:completed,cancelled'],
+            'payment_method' => ['nullable', 'in:cash,card,transfer,other'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
         $sales = Sale::query()
             ->with('member:id,public_code,first_name,last_name')
+            ->when(isset($validated['search']), function ($query) use ($validated): void {
+                $search = $validated['search'];
+                $query->where(function ($query) use ($search): void {
+                    if (ctype_digit($search)) {
+                        $query->where('id', (int) $search);
+                    }
+                    $query->orWhereHas('member', function ($query) use ($search): void {
+                        $query->where('first_name', 'like', '%'.$search.'%')
+                            ->orWhere('last_name', 'like', '%'.$search.'%')
+                            ->orWhere('public_code', 'like', '%'.$search.'%');
+                    });
+                });
+            })
             ->when(isset($validated['from']), fn ($query) => $query->whereDate('sold_at', '>=', $validated['from']))
             ->when(isset($validated['to']), fn ($query) => $query->whereDate('sold_at', '<=', $validated['to']))
             ->when(isset($validated['status']), fn ($query) => $query->where('status', $validated['status']))
+            ->when(isset($validated['payment_method']), fn ($query) => $query->where('payment_method', $validated['payment_method']))
             ->orderByDesc('sold_at')
             ->paginate((int) ($validated['per_page'] ?? 15));
 

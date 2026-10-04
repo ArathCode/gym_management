@@ -19,6 +19,8 @@ class PaymentController extends Controller
             'search' => ['nullable', 'string', 'max:255'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'status' => ['nullable', 'in:pending,partial,paid,cancelled'],
+            'payment_method' => ['nullable', 'in:cash,card,transfer,other'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
@@ -31,6 +33,8 @@ class PaymentController extends Controller
             }))
             ->when(isset($validated['from']), fn ($query) => $query->whereDate('paid_at', '>=', $validated['from']))
             ->when(isset($validated['to']), fn ($query) => $query->whereDate('paid_at', '<=', $validated['to']))
+            ->when(isset($validated['status']), fn ($query) => $query->where('status', $validated['status']))
+            ->when(isset($validated['payment_method']), fn ($query) => $query->where('payment_method', $validated['payment_method']))
             ->orderByDesc('paid_at')
             ->paginate((int) ($validated['per_page'] ?? 15));
 

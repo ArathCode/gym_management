@@ -5,12 +5,14 @@ import {
   Dumbbell,
   Ellipsis,
   House,
+  LogIn,
   LogOut,
   Package,
   QrCode,
   ShoppingCart,
   UsersRound,
 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../app/useAuth'
 import { getErrorMessage } from '../utils/errors'
@@ -31,7 +33,7 @@ const moreLinks = [
   { to: '/sales', label: 'Ventas', Icon: ShoppingCart },
 ]
 
-export function AppLayout() {
+export function AppLayout({ children }: { children?: ReactNode } = {}) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -81,12 +83,14 @@ export function AppLayout() {
           </div>
         </nav>
         <div className="user-actions">
-          <span className="user-chip"><span className="user-avatar" aria-hidden="true">{user?.name?.charAt(0) || 'U'}</span><span>{user?.name}</span></span>
-          <button className="button-secondary logout-button" onClick={handleLogout}><LogOut size={16} aria-hidden="true" /><span>Cerrar sesión</span></button>
+          {user ? <>
+            <span className="user-chip"><span className="user-avatar" aria-hidden="true">{user.name.charAt(0)}</span><span>{user.name}</span></span>
+            <button className="button-secondary logout-button" onClick={handleLogout}><LogOut size={16} aria-hidden="true" /><span>Cerrar sesión</span></button>
+          </> : <NavLink className="button-link access-login-link" to="/login"><LogIn size={16} aria-hidden="true" /><span>Iniciar sesión</span></NavLink>}
         </div>
       </header>
       <main className="content">
-        <Outlet />
+        <Outlet />{children}
       </main>
     </div>
   )

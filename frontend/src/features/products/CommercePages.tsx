@@ -1,9 +1,25 @@
 import { startTransition, useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { EmptyState, ErrorMessage, FieldError, Loading, Page, Pagination, Table } from '../../components/ui'
+import { ArrowUpRight, Boxes, Package, Pencil, Plus, Search, ShoppingCart } from 'lucide-react'
+import { EmptyState, ErrorMessage, FieldError, Loading, Page, Pagination, StatusBadge, Table } from '../../components/ui'
 import { commerceApi } from '../../services/commerceApi'
 import type { InventoryMovement, PageMeta, Product, Sale } from '../../types/api'
 import { formatDate, formatMoney, getErrorMessage, getFieldErrors } from '../../utils/errors'
+
+function stockLevel(product: Product): { status: string; label: string } {
+  const stock = Number(product.stock)
+  if (stock <= 0) return { status: 'out', label: 'Sin stock' }
+  if (stock <= Number(product.minimum_stock)) return { status: 'low', label: 'Stock bajo' }
+  return { status: 'active', label: 'Normal' }
+}
+
+function productPriceLabel(product: Product): string {
+  if (product.sale_type === 'scoop') return `${formatMoney(product.sale_price)} / scoop`
+  if (product.sale_type === 'weight') return `${formatMoney(product.sale_price)} / ${product.inventory_unit}`
+  return `${formatMoney(product.sale_price)} / unidad`
+}
+
+const paymentLabels: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' }
 
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -22,16 +38,32 @@ export function ProductsPage() {
   }, [search, page])
 
   return (
-    <Page title="Productos" actions={<Link className="button-link" to="/products/new">Nuevo producto</Link>}>
-      <label>Buscar producto <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} /></label>
+    <Page title="Productos" description="Consulta artículos, precios y existencias." actions={<Link className="button-link icon-button-link" to="/products/new"><Plus size={17} aria-hidden="true" />Nuevo producto</Link>}>
+      <label className="catalog-search"><Search size={18} aria-hidden="true" /><input aria-label="Buscar producto" placeholder="Buscar producto o SKU" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} /></label>
       {loading ? <Loading /> : error ? <ErrorMessage>{error}</ErrorMessage> : products.length === 0 ? <EmptyState>No hay productos.</EmptyState> : (
-        <Table><thead><tr><th>SKU</th><th>Producto</th><th>Categoría (id)</th><th>Tipo</th><th>Stock</th><th>Precio</th><th>Estado</th><th /></tr></thead>
-          <tbody>{products.map((product) => <tr key={product.id}>
-            <td>{product.sku}</td><td>{product.name}</td><td>{product.category_id ?? '—'}</td><td>{product.sale_type}</td>
-            <td>{product.stock} {product.inventory_unit}</td><td>{formatMoney(product.sale_price)}</td><td>{product.is_active ? 'Activo' : 'Inactivo'}</td>
-            <td><Link to={`/products/${product.id}`}>Ver</Link></td>
-          </tr>)}</tbody>
-        </Table>
+        <div className="product-grid">
+          {products.map((product) => {
+            const level = stockLevel(product)
+            const scoopCount = product.sale_type === 'scoop' && Number(product.portion_size) > 0
+              ? Math.floor(Number(product.stock) / Number(product.portion_size))
+              : null
+            return (
+              <article className="product-card" key={product.id}>
+                <div className="product-card-top"><span className="product-icon"><Package size={20} aria-hidden="true" /></span><StatusBadge status={product.is_active ? 'active' : 'inactive'} label={product.is_active ? 'Activo' : 'Inactivo'} /></div>
+                <p className="product-category">{product.category_id ? `Categoría #${product.category_id}` : 'Sin categoría'}</p>
+                <h2>{product.name}</h2>
+                <p className="product-sku">SKU {product.sku}</p>
+                <p className="product-price">{productPriceLabel(product)}</p>
+                <div className="product-stock-row"><div><span>Existencia</span><strong>{product.stock} {product.inventory_unit}</strong>{scoopCount !== null ? <small>≈ {scoopCount.toLocaleString()} scoops</small> : null}</div><StatusBadge status={level.status} label={level.label} /></div>
+                <div className="product-card-actions">
+                  <Link to={`/products/${product.id}`}><ArrowUpRight size={16} aria-hidden="true" />Ver</Link>
+                  <Link to={`/products/${product.id}/edit`}><Pencil size={16} aria-hidden="true" />Editar</Link>
+                  <Link to="/inventory"><Boxes size={16} aria-hidden="true" />Inventario</Link>
+                </div>
+              </article>
+            )
+          })}
+        </div>
       )}
       <Pagination meta={meta} onChange={setPage} />
     </Page>
@@ -126,8 +158,8 @@ export function ProductDetailPage() {
   if (loading) return <Page title="Producto"><Loading /></Page>
   if (!product) return <Page title="Producto"><ErrorMessage>{error || 'Producto no encontrado.'}</ErrorMessage></Page>
   return (
-    <Page title={product.name} actions={<Link className="button-link" to={`/products/${product.id}/edit`}>Editar producto</Link>}>
-      <dl className="details-grid">
+    <Page title={product.name} description="Detalle del producto y su unidad real de inventario." actions={<Link className="button-link icon-button-link" to={`/products/${product.id}/edit`}><Pencil size={16} aria-hidden="true" />Editar producto</Link>}>
+      <dl className="details-grid product-detail-card surface-card">
         <dt>SKU</dt><dd>{product.sku}</dd><dt>Categoría (id)</dt><dd>{product.category_id ?? '—'}</dd>
         <dt>Tipo de venta</dt><dd>{product.sale_type}</dd><dt>Existencia</dt><dd>{product.stock} {product.inventory_unit}</dd>
         <dt>Precio</dt><dd>{formatMoney(product.sale_price)}</dd><dt>Costo</dt><dd>{formatMoney(product.cost_price)}</dd>
@@ -135,7 +167,7 @@ export function ProductDetailPage() {
         {product.sale_type === 'scoop' ? <><dt>Porción</dt><dd>{product.portion_size} gramos por scoop</dd></> : null}
         <dt>Estado</dt><dd>{product.is_active ? 'Activo' : 'Inactivo'}</dd>
       </dl>
-      <p><Link to="/inventory">Abrir inventario</Link></p>
+      <p><Link className="table-action" to="/inventory"><Boxes size={16} aria-hidden="true" />Abrir inventario</Link></p>
     </Page>
   )
 }
@@ -143,10 +175,12 @@ export function ProductDetailPage() {
 export function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [movements, setMovements] = useState<InventoryMovement[]>([])
+  const movementForm = useRef<HTMLFormElement>(null)
   const [meta, setMeta] = useState<PageMeta>()
   const [page, setPage] = useState(1)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [movementType, setMovementType] = useState('')
   const [productId, setProductId] = useState('')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [sku, setSku] = useState('')
@@ -163,14 +197,14 @@ export function InventoryPage() {
   const load = useCallback(async () => {
     const [productResult, movementResult] = await Promise.all([
       commerceApi.products(),
-      commerceApi.movements({ from: from || undefined, to: to || undefined, page }),
+      commerceApi.movements({ from: from || undefined, to: to || undefined, type: movementType || undefined, page }),
     ])
     startTransition(() => {
       setProducts(productResult.data)
       setMovements(movementResult.data)
       setMeta(movementResult.meta)
     })
-  }, [from, page, to])
+  }, [from, movementType, page, to])
   useEffect(() => {
     load().catch((loadError: unknown) => setError(getErrorMessage(loadError, 'No se pudo cargar el inventario.')))
       .finally(() => setLoading(false))
@@ -220,10 +254,10 @@ export function InventoryPage() {
     : products
 
   return (
-    <Page title="Inventario">
+    <Page title="Inventario" description="Controla existencias y registra cada movimiento.">
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-      <form className="form-card" onSubmit={submit}>
-        <h2>Registrar movimiento</h2>
+      <form ref={movementForm} className="form-card inventory-form" onSubmit={submit}>
+        <div><h2>Registrar movimiento</h2><p>El stock se actualiza y queda auditado en el historial.</p></div>
         <div className="filters">
           <label>Escanear SKU / código de barras<input ref={skuInput} value={sku} onChange={(e) => setSku(e.target.value)} onKeyDown={(e) => {
             if (e.key === 'Enter') { e.preventDefault(); void lookupProduct() }
@@ -240,9 +274,31 @@ export function InventoryPage() {
         <label>Notas<textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
         <button disabled={pending || !productId}>{pending ? 'Guardando...' : 'Registrar movimiento'}</button>
       </form>
+      <section className="inventory-products">
+        <div className="module-section-heading"><div><h2>Existencias</h2><p>El inventario se muestra en su unidad física real.</p></div></div>
+        {products.length === 0 ? <EmptyState>No hay productos registrados.</EmptyState> : (
+          <Table><thead><tr><th>Producto</th><th>Categoría</th><th>Existencia</th><th>Stock mínimo</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody>{products.map((product) => {
+              const level = stockLevel(product)
+              const scoopCount = product.sale_type === 'scoop' && Number(product.portion_size) > 0
+                ? Math.floor(Number(product.stock) / Number(product.portion_size))
+                : null
+              return <tr key={product.id}>
+                <td><strong>{product.name}</strong><small className="table-subtext">SKU {product.sku}</small></td>
+                <td>{product.category_id ? `#${product.category_id}` : '—'}</td>
+                <td className="inventory-quantity"><strong>{product.stock} {product.inventory_unit}</strong>{scoopCount !== null ? <small>≈ {scoopCount.toLocaleString()} scoops</small> : null}</td>
+                <td>{product.minimum_stock} {product.inventory_unit}</td>
+                <td><StatusBadge status={level.status} label={level.label} /></td>
+                <td><div className="inventory-actions"><button type="button" className="table-inline-action" onClick={() => { setProductId(String(product.id)); setSelectedProduct(product); movementForm.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); movementForm.current?.querySelector<HTMLSelectElement>('select')?.focus({ preventScroll: true }) }}><Package size={15} aria-hidden="true" />Ajustar</button><Link className="table-action" to={`/products/${product.id}`}><ArrowUpRight size={15} aria-hidden="true" />Ver</Link><Link className="table-action" to={`/products/${product.id}/edit`}><Pencil size={15} aria-hidden="true" />Editar</Link></div></td>
+              </tr>
+            })}</tbody>
+          </Table>
+        )}
+      </section>
       <div className="filters">
         <label>Desde<input type="date" value={from} onChange={(e) => { setPage(1); setFrom(e.target.value) }} /></label>
         <label>Hasta<input type="date" value={to} onChange={(e) => { setPage(1); setTo(e.target.value) }} /></label>
+        <label>Movimiento<select value={movementType} onChange={(e) => { setPage(1); setMovementType(e.target.value) }}><option value="">Todos</option><option value="IN">Entrada</option><option value="SALE">Venta</option><option value="ADJUSTMENT">Ajuste</option><option value="RETURN">Devolución</option><option value="WASTE">Merma</option><option value="CANCELLATION">Cancelación</option></select></label>
       </div>
       <h2>Movimientos recientes</h2>
       {loading ? <Loading /> : movements.length === 0 ? <EmptyState>No hay movimientos de inventario.</EmptyState> : (
@@ -259,24 +315,38 @@ export function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([])
   const [meta, setMeta] = useState<PageMeta>()
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [status, setStatus] = useState('')
+  const [method, setMethod] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   useEffect(() => {
     startTransition(() => setLoading(true))
-    commerceApi.sales({ from: from || undefined, to: to || undefined, page })
-      .then((result) => { setSales(result.data); setMeta(result.meta) })
+    commerceApi.sales({ search: search || undefined, from: from || undefined, to: to || undefined, status: status || undefined, payment_method: method || undefined, page })
+      .then((result) => { setSales(result.data); setMeta(result.meta); setError('') })
       .catch((loadError: unknown) => setError(getErrorMessage(loadError, 'No se pudieron cargar las ventas.')))
       .finally(() => setLoading(false))
-  }, [from, to, page])
+  }, [from, method, page, search, status, to])
 
   return (
-    <Page title="Ventas" actions={<Link className="button-link" to="/pos">Nueva venta</Link>}>
-      <div className="filters"><label>Desde<input type="date" value={from} onChange={(e) => { setPage(1); setFrom(e.target.value) }} /></label><label>Hasta<input type="date" value={to} onChange={(e) => { setPage(1); setTo(e.target.value) }} /></label></div>
+    <Page title="Ventas" description="Consulta y audita las operaciones del punto de venta." actions={<Link className="button-link icon-button-link" to="/pos"><ShoppingCart size={17} aria-hidden="true" />Nueva venta</Link>}>
+      <div className="filters sales-filters">
+        <label className="filter-search"><Search size={18} aria-hidden="true" /><input aria-label="Buscar venta" placeholder="Folio o miembro" value={search} onChange={(e) => { setPage(1); setSearch(e.target.value) }} /></label>
+        <label>Desde<input type="date" value={from} onChange={(e) => { setPage(1); setFrom(e.target.value) }} /></label>
+        <label>Hasta<input type="date" value={to} onChange={(e) => { setPage(1); setTo(e.target.value) }} /></label>
+        <label>Estado<select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value) }}><option value="">Todos</option><option value="completed">Completada</option><option value="cancelled">Cancelada</option></select></label>
+        <label>Método<select value={method} onChange={(e) => { setPage(1); setMethod(e.target.value) }}><option value="">Todos</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option><option value="other">Otro</option></select></label>
+      </div>
       {loading ? <Loading /> : error ? <ErrorMessage>{error}</ErrorMessage> : sales.length === 0 ? <EmptyState>No hay ventas.</EmptyState> : (
-        <Table><thead><tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Método</th></tr></thead>
-          <tbody>{sales.map((sale) => <tr key={sale.id}><td><Link to={`/sales/${sale.id}`}>{sale.id}</Link></td><td>{formatDate(sale.sold_at)}</td><td>{sale.member ? `${sale.member.first_name} ${sale.member.last_name}` : 'Venta general'}</td><td>{formatMoney(sale.total)}</td><td>{sale.status}</td><td>{sale.payment_method}</td></tr>)}</tbody>
+        <Table><thead><tr><th>Folio</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Método de pago</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody>{sales.map((sale) => <tr key={sale.id}>
+            <td><Link to={`/sales/${sale.id}`}>#{sale.id}</Link></td><td>{formatDate(sale.sold_at)}</td><td>{sale.member ? `${sale.member.first_name} ${sale.member.last_name}` : 'Venta general'}</td>
+            <td className="table-amount">{formatMoney(sale.total)}</td><td>{paymentLabels[sale.payment_method]}</td>
+            <td><StatusBadge status={sale.status} label={sale.status === 'completed' ? 'Completada' : 'Cancelada'} /></td>
+            <td><Link className="table-action" to={`/sales/${sale.id}`} aria-label={`Ver venta ${sale.id}`}><ArrowUpRight size={16} aria-hidden="true" />Detalle</Link></td>
+          </tr>)}</tbody>
         </Table>
       )}
       <Pagination meta={meta} onChange={setPage} />
@@ -307,9 +377,9 @@ export function SaleDetailPage() {
   if (loading) return <Page title="Venta"><Loading /></Page>
   if (!sale) return <Page title="Venta"><ErrorMessage>{error || 'Venta no encontrada.'}</ErrorMessage></Page>
   return (
-    <Page title={`Venta #${sale.id}`}>
+    <Page title={`Venta #${sale.id}`} description="Detalle de productos, cantidades e importes de la operación.">
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-      <p>Fecha: {formatDate(sale.sold_at)} · Estado: {sale.status} · Método: {sale.payment_method}</p>
+      <section className="sale-summary surface-card"><div><span>Fecha</span><strong>{formatDate(sale.sold_at)}</strong></div><div><span>Estado</span><StatusBadge status={sale.status} label={sale.status === 'completed' ? 'Completada' : 'Cancelada'} /></div><div><span>Método</span><strong>{paymentLabels[sale.payment_method]}</strong></div><div><span>Cliente</span><strong>{sale.member ? `${sale.member.first_name} ${sale.member.last_name}` : 'Venta general'}</strong></div></section>
       <Table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th><th>Descuento stock</th></tr></thead>
         <tbody>{sale.items?.map((item) => <tr key={item.id}><td>{item.product?.name ?? item.product_id}</td><td>{item.quantity}</td><td>{formatMoney(item.unit_price)}</td><td>{formatMoney(item.subtotal)}</td><td>{item.inventory_quantity} {item.product?.inventory_unit}</td></tr>)}</tbody>
       </Table>

@@ -1,16 +1,29 @@
 import type { ReactNode } from 'react'
 import type { PageMeta } from '../types/api'
 
-export function Page({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
+export function Page({
+  title,
+  description,
+  children,
+  actions,
+}: { title: string; description?: string; children: ReactNode; actions?: ReactNode }) {
   return (
     <section className="page">
       <header className="page-header">
-        <h1>{title}</h1>
+        <div className="page-heading">
+          <h1>{title}</h1>
+          {description ? <p className="page-description">{description}</p> : null}
+        </div>
         {actions ? <div className="page-actions">{actions}</div> : null}
       </header>
       {children}
     </section>
   )
+}
+
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
+  const statusClass = status.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  return <span className={`status-badge status-${statusClass}`}><span aria-hidden="true" />{label ?? status}</span>
 }
 
 export function Loading({ label = 'Cargando...' }: { label?: string }) {

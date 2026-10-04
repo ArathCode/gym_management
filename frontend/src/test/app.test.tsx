@@ -2,10 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import App from '../App'
+import { AuthProvider } from '../app/AuthProvider'
+import { AppLayout } from '../layouts/AppLayout'
 import { AccessPage } from '../features/access/AccessPage'
 import { MemberCredentialPage, MemberFormPage, MembersPage } from '../features/members/MembersPages'
+import { PaymentsPage } from '../features/memberships/MembershipPages'
 import { PosPage } from '../features/sales/PosPage'
-import { InventoryPage } from '../features/products/CommercePages'
+import { InventoryPage, ProductsPage } from '../features/products/CommercePages'
 import { api } from '../services/api'
 import { membersApi } from '../services/membersApi'
 import { commerceApi } from '../services/commerceApi'
@@ -22,6 +25,7 @@ vi.mock('../services/membersApi', () => ({
 vi.mock('../services/commerceApi', () => ({
   commerceApi: {
     products: vi.fn().mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 15, total: 0, last_page: 1 } }),
+    payments: vi.fn().mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 15, total: 0, last_page: 1 } }),
     movements: vi.fn().mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 15, total: 0, last_page: 1 } }),
     createMovement: vi.fn(),
     createSale: vi.fn(),
@@ -40,7 +44,7 @@ afterEach(() => cleanup())
 describe('Authentication and protected routes', () => {
   it('redirects unauthenticated users to login', async () => {
     render(<App />)
-    expect(await screen.findByRole('heading', { name: 'Gym Management' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Inicia sesión' })).toBeInTheDocument()
     expect(screen.getByLabelText('Correo electrónico')).toBeInTheDocument()
   })
 
@@ -63,6 +67,50 @@ describe('Authentication and protected routes', () => {
 })
 
 describe('Main operation flows', () => {
+  it('keeps public access inside the global navigation', () => {
+    render(<MemoryRouter initialEntries={['/access']}><AuthProvider><AppLayout><AccessPage /></AppLayout></AuthProvider></MemoryRouter>)
+
+    expect(screen.getByRole('navigation', { name: 'Navegación principal' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Accesos' })).toHaveClass('active')
+    expect(screen.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('textbox', { name: 'Escanear credencial' })).toBeInTheDocument()
+  })
+
+  it('renders products as cards with stock measured in grams', async () => {
+    vi.mocked(commerceApi.products).mockResolvedValue({
+      data: [{
+        id: 22, name: 'Proteína whey', sku: 'WHEY-22', category_id: 5, sale_type: 'scoop', inventory_unit: 'gram',
+        sale_price: '35.00', cost_price: '20.00', stock: '1940.00', minimum_stock: '100.00', portion_size: '30.00', is_active: true,
+      }],
+      meta: { current_page: 1, per_page: 15, total: 1, last_page: 1 },
+    })
+
+    render(<MemoryRouter><ProductsPage /></MemoryRouter>)
+
+    expect(await screen.findByRole('heading', { name: 'Proteína whey' })).toBeInTheDocument()
+    expect(screen.getByText('1940.00 gram')).toBeInTheDocument()
+    expect(screen.getByText('≈ 64 scoops')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Editar' })).toHaveAttribute('href', '/products/22/edit')
+  })
+
+  it('filters payments by status and payment method', async () => {
+    vi.mocked(commerceApi.payments).mockResolvedValue({
+      data: [{
+        id: 31, member_id: 8, membership_id: 13, amount: '125.00', payment_method: 'card', reference: 'R-31',
+        status: 'partial', paid_at: '2026-10-03T10:00:00Z',
+        member: { id: 8, public_code: 'M-008', barcode_value: 'B-8', first_name: 'Eva', last_name: 'Diaz', phone: null, email: null, birth_date: null, status: 'active', registered_at: null },
+      }],
+      meta: { current_page: 1, per_page: 15, total: 1, last_page: 1 },
+    })
+
+    render(<MemoryRouter><PaymentsPage /></MemoryRouter>)
+
+    expect(await screen.findByText('Parcial')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Estado'), { target: { value: 'partial' } })
+    fireEvent.change(screen.getByLabelText('Método'), { target: { value: 'card' } })
+    await waitFor(() => expect(commerceApi.payments).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'partial', payment_method: 'card' })))
+  })
+
   it('renders member cards with actions and retains the status filter', async () => {
     vi.mocked(membersApi.list).mockResolvedValue({
       data: [{
@@ -133,7 +181,7 @@ describe('Main operation flows', () => {
       },
     } as never)
     render(<MemoryRouter><AccessPage /></MemoryRouter>)
-    const input = screen.getByLabelText('Escanea la credencial')
+    const input = screen.getByLabelText('Escanear credencial')
     fireEvent.change(input, { target: { value: ' MBR-1 ' } })
     fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
@@ -156,8 +204,8 @@ describe('Main operation flows', () => {
     })
 
     render(<MemoryRouter><PosPage /></MemoryRouter>)
-    fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Agregar Agua' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cobrar' }))
 
     await waitFor(() => expect(commerceApi.createSale).toHaveBeenCalled())
     expect(commerceApi.createSale).toHaveBeenCalledWith({
@@ -165,7 +213,7 @@ describe('Main operation flows', () => {
       items: [{ product_id: product.id, quantity: 1 }],
     })
     expect(screen.getByText(/Venta #21 confirmada/)).toBeInTheDocument()
-    expect(await screen.findByText('5.00')).toBeInTheDocument()
+    expect(await screen.findByText(/5\.00 unit disponibles/)).toBeInTheDocument()
   })
 
   it('adds a POS product by scanned SKU while keeping name search available', async () => {

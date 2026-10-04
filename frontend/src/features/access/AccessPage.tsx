@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import axios from 'axios'
+import { BadgeCheck, CircleAlert, ScanLine, ShieldCheck } from 'lucide-react'
 import { api } from '../../services/api'
 
 type AccessResult = {
@@ -64,24 +65,29 @@ export function AccessPage() {
   const memberName = [result?.member?.first_name, result?.member?.last_name].filter(Boolean).join(' ')
 
   return (
-    <main className="access-page">
+    <section className="access-page">
       <section className="scanner-panel">
-        <p>Recepción</p><h1>Control de acceso</h1>
+        <header className="access-heading"><span className="access-heading-icon"><ShieldCheck size={22} aria-hidden="true" /></span><div><p>Recepción</p><h1>Control de acceso</h1><span>Verifica una membresía con el lector de credenciales.</span></div></header>
         <form onSubmit={onSubmit} className="scanner-form">
-          <label htmlFor="barcode-input">Escanea la credencial</label>
+          <label htmlFor="barcode-input">Escanear credencial</label>
           <input id="barcode-input" ref={inputRef} autoFocus value={barcode} onChange={(e) => setBarcode(e.target.value)}
             onKeyDown={onKeyDown} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
-            placeholder="MBR-..." disabled={pending} />
-          <button disabled={pending || !barcode.trim()}>{pending ? 'Validando...' : 'Registrar acceso'}</button>
+            placeholder="Coloca el cursor y escanea el código" disabled={pending} />
+          <button className="access-submit" disabled={pending || !barcode.trim()}><ScanLine size={17} aria-hidden="true" />{pending ? 'Validando...' : 'Registrar acceso'}</button>
         </form>
-        <div className={`result-card ${code === 'granted' ? 'granted' : code === 'idle' ? 'idle' : 'denied'}`}>
-          <strong>{accessLabels[code] ?? 'ACCESO DENEGADO'}</strong>
-          <p>{memberName || (code === 'idle' ? 'Esperando lectura' : '')}</p>
-          <p>{message}</p>
-          {result?.member?.public_code ? <small>Socio: {result.member.public_code}</small> : null}
-          {result?.membership?.ends_at ? <small>Vence: {result.membership.ends_at}</small> : null}
+        <div className={`access-result ${code === 'granted' ? 'is-granted' : code === 'idle' ? 'is-idle' : 'is-denied'}`} role="status" aria-live="polite">
+          <span className="access-result-icon" aria-hidden="true">{code === 'granted' ? <BadgeCheck size={25} /> : code === 'idle' ? <ScanLine size={25} /> : <CircleAlert size={25} />}</span>
+          <div className="access-result-content">
+            <span className="access-result-eyebrow">{pending ? 'Validación en curso' : 'Resultado de validación'}</span>
+            <strong>{accessLabels[code] ?? 'ACCESO DENEGADO'}</strong>
+            {memberName ? <h2>{memberName}</h2> : <p>{code === 'idle' ? 'Esperando lectura de credencial' : message}</p>}
+            {memberName && result?.member?.public_code ? <p>Código de socio <b>{result.member.public_code}</b></p> : null}
+            {result?.membership?.status ? <p>Membresía <b>{result.membership.status === 'active' ? 'Activa' : result.membership.status}</b></p> : null}
+            {result?.membership?.ends_at ? <p>Vigencia hasta <b>{result.membership.ends_at}</b></p> : null}
+            {memberName ? <small>{message}</small> : null}
+          </div>
         </div>
       </section>
-    </main>
+    </section>
   )
 }

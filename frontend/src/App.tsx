@@ -30,7 +30,7 @@ function ApplicationRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/access" element={<AccessPage />} />
+      <Route path="/access" element={<AppLayout><AccessPage /></AppLayout>} />
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
