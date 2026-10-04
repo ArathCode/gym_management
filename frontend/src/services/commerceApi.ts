@@ -1,4 +1,5 @@
 import type {
+  DashboardSummary,
   InventoryMovement,
   Membership,
   MembershipPlan,
@@ -11,6 +12,7 @@ import type {
 import { api } from './api'
 
 export const commerceApi = {
+  dashboard: () => api.get<{ data: DashboardSummary }>('/dashboard').then((response) => response.data.data),
   plans: () => api.get<{ data: MembershipPlan[] }>('/membership-plans').then((response) => response.data.data),
   plan: (id: number) => api.get<{ data: MembershipPlan }>(`/membership-plans/${id}`).then((response) => response.data.data),
   createPlan: (values: Record<string, unknown>) =>

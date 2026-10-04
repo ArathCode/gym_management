@@ -144,3 +144,19 @@ export type Report = {
   by_movement_type?: Array<Record<string, number | string>>
   recent_visits?: Visit[]
 }
+
+export type DashboardSummary = {
+  timezone: string
+  active_members: number
+  new_active_members_this_week: number
+  active_plans: number
+  new_active_plans_this_week: number
+  income_today: { memberships: string; pos: string; total: string }
+  income_yesterday: { memberships: string; pos: string; total: string }
+  income_change_percent: string | null
+  visits_today: number
+  visits_change: number
+  recent_visits: Visit[]
+  low_stock_count: number
+  low_stock_products: Pick<Product, 'id' | 'name' | 'sku' | 'stock' | 'minimum_stock' | 'inventory_unit'>[]
+}

@@ -5,12 +5,14 @@ import App from '../App'
 import { AuthProvider } from '../app/AuthProvider'
 import { AppLayout } from '../layouts/AppLayout'
 import { AccessPage } from '../features/access/AccessPage'
+import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { MemberCredentialPage, MemberFormPage, MembersPage } from '../features/members/MembersPages'
 import { PaymentsPage } from '../features/memberships/MembershipPages'
 import { PosPage } from '../features/sales/PosPage'
 import { InventoryPage, ProductsPage } from '../features/products/CommercePages'
 import { api } from '../services/api'
 import { membersApi } from '../services/membersApi'
+import { createCredentialImage } from '../features/members/services/credentialImage'
 import { commerceApi } from '../services/commerceApi'
 import type { Product, User } from '../types/api'
 
@@ -22,8 +24,18 @@ vi.mock('../services/membersApi', () => ({
   },
 }))
 
+vi.mock('../features/members/services/credentialImage', () => ({ createCredentialImage: vi.fn() }))
+
 vi.mock('../services/commerceApi', () => ({
   commerceApi: {
+    dashboard: vi.fn().mockResolvedValue({
+      timezone: 'UTC', active_members: 0, new_active_members_this_week: 0,
+      active_plans: 0, new_active_plans_this_week: 0,
+      income_today: { memberships: '0.00', pos: '0.00', total: '0.00' },
+      income_yesterday: { memberships: '0.00', pos: '0.00', total: '0.00' },
+      income_change_percent: null, visits_today: 0, visits_change: 0,
+      recent_visits: [], low_stock_count: 0, low_stock_products: [],
+    }),
     products: vi.fn().mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 15, total: 0, last_page: 1 } }),
     payments: vi.fn().mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 15, total: 0, last_page: 1 } }),
     movements: vi.fn().mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 15, total: 0, last_page: 1 } }),
@@ -67,6 +79,34 @@ describe('Authentication and protected routes', () => {
 })
 
 describe('Main operation flows', () => {
+  it('shows dashboard visits, actual inventory units and actionable shortcuts', async () => {
+    vi.mocked(commerceApi.dashboard).mockResolvedValueOnce({
+      timezone: 'UTC', active_members: 5, new_active_members_this_week: 1,
+      active_plans: 3, new_active_plans_this_week: 0,
+      income_today: { memberships: '100.00', pos: '50.00', total: '150.00' },
+      income_yesterday: { memberships: '50.00', pos: '50.00', total: '100.00' },
+      income_change_percent: '50.00', visits_today: 8, visits_change: 3,
+      recent_visits: [{ id: 1, checked_in_at: '2026-10-04T10:24:00Z', access_status: 'granted',
+        member: { id: 8, public_code: 'M-8', barcode_value: '', first_name: 'Ana', last_name: 'Example', phone: null, email: null, birth_date: null, status: 'active', registered_at: null } }],
+      low_stock_count: 1,
+      low_stock_products: [{ id: 22, name: 'Whey', sku: 'WHEY', stock: '30.00', minimum_stock: '60.00', inventory_unit: 'gram' }],
+    })
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>)
+    expect(await screen.findByRole('link', { name: 'Ana Example' })).toHaveAttribute('href', '/members/8')
+    expect(screen.getByText('+50% vs. ayer')).toBeInTheDocument()
+    expect(screen.getByText('Entrada')).toBeInTheDocument()
+    expect(screen.getByText(/Mínimo: 60\.00 g/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver todos →' })).toHaveAttribute('href', '/reports?type=attendance')
+    expect(screen.getByRole('link', { name: /Nuevo pago/ })).toHaveAttribute('href', '/members')
+  })
+
+  it('shows explicit dashboard empty states', async () => {
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>)
+    expect(await screen.findByText('Todavía no hay accesos registrados.')).toBeInTheDocument()
+    expect(screen.getByText('No hay productos con inventario bajo.')).toBeInTheDocument()
+    expect(screen.getByText('Sin base de comparación ayer')).toBeInTheDocument()
+  })
+
   it('keeps public access inside the global navigation', () => {
     render(<MemoryRouter initialEntries={['/access']}><AuthProvider><AppLayout><AccessPage /></AppLayout></AuthProvider></MemoryRouter>)
 
@@ -156,7 +196,13 @@ describe('Main operation flows', () => {
       id: 12, public_code: 'M-12', barcode_value: 'MBR-A7F9K2XQ', first_name: 'Ana', last_name: 'Lopez',
       phone: null, email: null, birth_date: null, status: 'active', registered_at: null,
     })
-    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    const blob = new Blob(['credential'], { type: 'image/png' })
+    vi.mocked(createCredentialImage).mockResolvedValueOnce(blob)
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:credential')
+    let downloadedName = ''
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloadedName = this.download
+    })
 
     render(
       <MemoryRouter initialEntries={['/members/12/credential']}>
@@ -169,8 +215,11 @@ describe('Main operation flows', () => {
     expect(screen.getByAltText('')).toHaveAttribute('src', '/images/member-credential-template.png')
     const barcode = screen.getByRole('img', { name: 'Código de barras MBR-A7F9K2XQ' })
     await waitFor(() => expect(barcode.querySelector('rect')).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: 'Imprimir credencial' }))
-    expect(print).toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar credencial PNG' }))
+    await waitFor(() => expect(click).toHaveBeenCalled())
+    expect(createCredentialImage).toHaveBeenCalledWith(expect.objectContaining({ first_name: 'Ana', barcode_value: 'MBR-A7F9K2XQ' }))
+    expect(createUrl).toHaveBeenCalledWith(blob)
+    expect(downloadedName).toBe('credencial-M-12.png')
   })
 
   it('sends a barcode on Enter and clears the scanner input', async () => {

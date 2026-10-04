@@ -12,7 +12,7 @@ import {
   ShoppingCart,
   UsersRound,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../app/useAuth'
 import { getErrorMessage } from '../utils/errors'
@@ -37,7 +37,34 @@ export function AppLayout({ children }: { children?: ReactNode } = {}) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const moreMenuRef = useRef<HTMLDetailsElement>(null)
   const moreIsActive = moreLinks.some(({ to }) => pathname === to || pathname.startsWith(`${to}/`))
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      const menu = moreMenuRef.current
+      if (menu && event.target instanceof Node && !menu.contains(event.target)) {
+        menu.open = false
+      }
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      const menu = moreMenuRef.current
+      if (event.key === 'Escape' && menu?.open) {
+        menu.open = false
+        menu.querySelector('summary')?.focus()
+      }
+    }
+    document.addEventListener('click', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('click', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (moreMenuRef.current) moreMenuRef.current.open = false
+  }, [pathname])
 
   const handleLogout = async () => {
     try {
@@ -66,7 +93,7 @@ export function AppLayout({ children }: { children?: ReactNode } = {}) {
                 <span>{label}</span>
               </NavLink>
             ))}
-            <details className={`nav-more${moreIsActive ? ' active' : ''}`}>
+            <details ref={moreMenuRef} className={`nav-more${moreIsActive ? ' active' : ''}`}>
               <summary aria-label="Más secciones">
                 <Ellipsis size={20} strokeWidth={2.4} aria-hidden="true" />
                 <span>Más</span>
@@ -74,7 +101,9 @@ export function AppLayout({ children }: { children?: ReactNode } = {}) {
               </summary>
               <div className="more-menu">
                 {moreLinks.map(({ to, label, Icon }) => (
-                  <NavLink key={to} to={to} className={({ isActive }) => isActive ? 'active' : undefined}>
+                  <NavLink key={to} to={to} onClick={() => {
+                    if (moreMenuRef.current) moreMenuRef.current.open = false
+                  }} className={({ isActive }) => isActive ? 'active' : undefined}>
                     <Icon size={17} aria-hidden="true" />{label}
                   </NavLink>
                 ))}

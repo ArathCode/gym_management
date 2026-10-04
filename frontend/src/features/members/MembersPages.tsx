@@ -7,6 +7,7 @@ import { ErrorMessage, FieldError, Loading, EmptyState, Page, Pagination } from 
 import { membersApi } from '../../services/membersApi'
 import type { Member, PageMeta } from '../../types/api'
 import { formatDate, getErrorMessage, getFieldErrors } from '../../utils/errors'
+import { createCredentialImage } from './services/credentialImage'
 
 export function MembersPage() {
   const [members, setMembers] = useState<Member[]>([])
@@ -149,6 +150,7 @@ export function MemberDetailPage() {
   if (loading) return <Page title="Detalle de miembro"><Loading /></Page>
   if (!member) return <Page title="Detalle de miembro"><ErrorMessage>{error || 'Miembro no encontrado.'}</ErrorMessage></Page>
   return (
+    <div className="surface-card member-detail-card">
     <Page title={`${member.first_name} ${member.last_name}`} actions={<Link className="button-link" to={`/members/${member.id}/edit`}>Editar</Link>}>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       <dl className="details-grid">
@@ -162,6 +164,7 @@ export function MemberDetailPage() {
         <Link className="button-link" to={`/members/${member.id}/memberships`}>Ver membresías y pagos</Link>
       </div>
     </Page>
+    </div>
   )
 }
 
@@ -170,7 +173,29 @@ export function MemberCredentialPage() {
   const [member, setMember] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [downloading, setDownloading] = useState(false)
   const barcodeRef = useRef<SVGSVGElement>(null)
+
+  const download = async () => {
+    if (!member || downloading) return
+    setDownloading(true)
+    setError('')
+    try {
+      const blob = await createCredentialImage(member)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `credencial-${member.public_code.replace(/[^a-zA-Z0-9_-]/g, '_')}.png`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (downloadError) {
+      setError(getErrorMessage(downloadError, 'No se pudo descargar la credencial.'))
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   useEffect(() => {
     membersApi.get(Number(id))
@@ -198,8 +223,10 @@ export function MemberCredentialPage() {
   return (
     <Page
       title="Credencial de miembro"
-      actions={<div className="button-row credential-actions"><Link className="button-link" to={`/members/${member.id}`}>Volver al miembro</Link><button onClick={() => window.print()}>Imprimir credencial</button></div>}
+      actions={<div className="button-row credential-actions"><Link className="button-link" to={`/members/${member.id}`}>Volver al miembro</Link><button onClick={() => void download()} disabled={downloading}>{downloading ? 'Generando imagen...' : 'Descargar credencial PNG'}</button></div>}
     >
+      {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+      <p className="page-description">Imagen de 1011 × 638 px, proporción de credencial de 85.6 × 54 mm.</p>
       <article className="member-credential" aria-label={`Credencial de ${member.first_name} ${member.last_name}`}>
         <img className="member-credential-template" src="/images/member-credential-template.png" alt="" />
         <span className="credential-name">{member.first_name} {member.last_name}</span>

@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useState } from 'react'
 import { BarChart3 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { ErrorMessage, Loading, Page, Table } from '../../components/ui'
 import { commerceApi } from '../../services/commerceApi'
 import type { Report } from '../../types/api'
@@ -16,7 +17,7 @@ const fieldLabels: Record<string, string> = {
 }
 
 function ReportTable({ title, rows }: { title: string; rows?: Array<Record<string, number | string>> }) {
-  if (!rows?.length) return <p>No hay datos para mostrar.</p>
+  if (!rows?.length) return null
   const columns = Object.keys(rows[0])
   return <section className="report-table-section"><h2>{title}</h2><Table><thead><tr>{columns.map((column) => <th key={column}>{fieldLabels[column] ?? column.replaceAll('_', ' ')}</th>)}</tr></thead>
     <tbody>{rows.map((row, index) => <tr key={index}>{columns.map((column) => <td key={column}>{String(row[column] ?? '—')}</td>)}</tr>)}</tbody>
@@ -24,7 +25,7 @@ function ReportTable({ title, rows }: { title: string; rows?: Array<Record<strin
 }
 
 function ReportBarChart({ title, rows, amountKey }: { title: string; rows?: Array<Record<string, number | string>>; amountKey: 'total' | 'count' }) {
-  if (!rows?.length) return <section className="report-chart"><h2>{title}</h2><p>No hay datos para mostrar.</p></section>
+  if (!rows?.length) return null
   const maxValue = Math.max(...rows.map((row) => Number(row[amountKey] ?? 0)), 1)
   return (
     <section className="report-chart">
@@ -45,7 +46,11 @@ function ReportBarChart({ title, rows, amountKey }: { title: string; rows?: Arra
 }
 
 export function ReportsPage() {
-  const [type, setType] = useState<ReportType>('sales')
+  const [searchParams] = useSearchParams()
+  const [type, setType] = useState<ReportType>(() => {
+    const requested = searchParams.get('type')
+    return requested && Object.hasOwn(titles, requested) ? requested as ReportType : 'sales'
+  })
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [report, setReport] = useState<Report | null>(null)
@@ -75,14 +80,14 @@ export function ReportsPage() {
               <strong>{key === 'total' ? formatMoney(value) : Number(value).toLocaleString()}</strong>
             </article>)}
           </section>
-          <div className="report-chart-grid">
+          {report.by_day?.length || report.by_method?.length ? <div className="report-chart-grid">
             <ReportBarChart title="Actividad por día" rows={report.by_day} amountKey={report.by_day?.some((row) => row.total !== undefined) ? 'total' : 'count'} />
             {report.by_method?.length ? <ReportBarChart title="Por método" rows={report.by_method} amountKey={report.by_method.some((row) => row.total !== undefined) ? 'total' : 'count'} /> : null}
-          </div>
-          <div className="report-detail-grid">
+          </div> : null}
+          {report.by_day?.length || report.by_method?.length ? <div className="report-detail-grid">
             <ReportTable title="Detalle por día" rows={report.by_day} />
             <ReportTable title="Detalle por método" rows={report.by_method} />
-          </div>
+          </div> : null}
           <ReportTable title="Productos con stock bajo" rows={report.low_stock_products?.map((product) => ({
             nombre: product.name, sku: product.sku, existencia: product.stock, mínimo: product.minimum_stock, unidad: product.inventory_unit,
           }))} />

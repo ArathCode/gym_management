@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccessController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\InventoryMovementController;
 use App\Http\Controllers\Api\MemberController;
 use App\Http\Controllers\Api\MembershipController;
@@ -17,6 +18,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/access/check-in', [AccessController::class, 'checkIn']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
+    Route::get('/dashboard', DashboardController::class);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
 

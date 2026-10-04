@@ -255,9 +255,8 @@ th {
 
 .access-page {
   display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: 1rem;
+  justify-items: center;
+  align-items: start;
 }
 
 .scanner-panel {
@@ -290,29 +289,35 @@ th {
 
 .member-credential {
   position: relative;
-  width: min(100%, 960px);
-  aspect-ratio: 3 / 2;
+  width: min(100%, 505.5px);
+  aspect-ratio: 1011 / 638;
+  container-type: inline-size;
   overflow: hidden;
   margin: 1.5rem auto;
-  background: #fff;
+  border-radius: 16px;
+  background: transparent;
   box-shadow: 0 4px 18px #0003;
 }
 
 .member-credential-template {
+  position: absolute;
+  left: -2.555%;
+  top: -5.479%;
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 105.109%;
+  height: 116.895%;
+  max-width: none;
 }
 
 .credential-name,
 .credential-code {
   position: absolute;
-  left: 57.8%;
-  width: 37.5%;
+  left: 58.2%;
+  width: 39.4%;
   overflow: hidden;
   color: #111;
   font-family: Impact, 'Arial Narrow', sans-serif;
-  font-size: clamp(0.65rem, 2.15vw, 1.55rem);
+  font-size: 3.16cqw;
   font-weight: 800;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -320,21 +325,21 @@ th {
 }
 
 .credential-name {
-  top: 29.4%;
+  top: 26.7%;
 }
 
 .credential-code {
-  top: 38.7%;
-  font-size: clamp(0.55rem, 1.7vw, 1.2rem);
+  top: 39.8%;
+  font-size: 2.47cqw;
 }
 
 .credential-barcode {
   position: absolute;
-  top: 47%;
-  left: 46.5%;
+  top: 49.5%;
+  left: 46.3%;
   display: flex;
-  width: 47%;
-  height: 17%;
+  width: 49.4%;
+  height: 19.9%;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -1282,6 +1287,30 @@ td a:hover {
   background: #f5f5f5;
 }
 
+/* Shared decorative backdrop for login and every application module. */
+.app-shell,
+.login-page {
+  position: relative;
+  isolation: isolate;
+}
+
+@media screen and (min-width: 768px) {
+  .app-shell::before,
+  .login-page::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: url('/images/gorilla-background.png');
+    background-repeat: no-repeat;
+    background-position: right -8vw top 90px;
+    background-size: auto 105vh;
+    opacity: 0.08;
+    filter: blur(1px);
+  }
+}
+
 .login-page .form-card {
   width: min(100%, 27rem);
   padding: clamp(1.35rem, 4vw, 2rem);
@@ -1995,6 +2024,36 @@ button.table-inline-action:hover {
   font-size: 0.9rem;
 }
 
+.member-detail-card {
+  width: min(100%, 48rem);
+  margin: 1rem auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  border-radius: 24px;
+}
+
+.member-detail-card .page-header {
+  flex-wrap: wrap;
+}
+
+.member-detail-card .details-grid {
+  margin: 1.5rem 0;
+  gap: 0.85rem 1rem;
+}
+
+.member-detail-card dt {
+  color: var(--muted);
+}
+
+.member-detail-card dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.member-detail-card .button-row {
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
 .product-detail-card {
   width: min(100%, 54rem);
   max-width: 54rem;
@@ -2315,9 +2374,7 @@ button.table-inline-action:hover {
 }
 
 .access-page {
-  min-height: 100vh;
-  padding: clamp(1rem, 5vw, 3rem);
-  background: #f5f5f5;
+  padding: clamp(0.5rem, 2vw, 1.5rem) 0;
 }
 
 .scanner-panel {
@@ -2578,4 +2635,97 @@ button.table-inline-action:hover {
   .pagination {
     justify-content: center;
   }
+}
+
+/* Consistent glass surfaces across all modules. */
+:root {
+  --glass-surface: linear-gradient(135deg, rgb(255 255 255 / 76%), rgb(255 255 255 / 42%));
+  --glass-control: rgb(255 255 255 / 58%);
+  --glass-filter: blur(22px) saturate(150%);
+  --glass-shadow: 0 16px 40px rgb(20 27 38 / 9%), inset 0 1px 0 rgb(255 255 255 / 95%), inset 0 -1px 0 rgb(255 255 255 / 40%);
+}
+
+@media screen {
+  :is(.form-card, .surface-card, .panel-card, .member-card, .plan-card,
+      .product-card, .pos-products-panel, .pos-cart-panel, button.pos-product-card,
+      .table-scroll, .report-filters, .report-kpi, .report-chart,
+      .dashboard-kpi, .dashboard-link, .scanner-panel, .nav-pill, .more-menu,
+      .membership-payment-panel[open]) {
+    border-color: rgb(255 255 255 / 85%);
+    background: var(--glass-surface);
+    backdrop-filter: var(--glass-filter);
+    -webkit-backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-shadow);
+  }
+
+  :is(input, select, textarea, .member-search, .member-status select,
+      .payment-filters .filter-search, .sales-filters .filter-search,
+      .pos-search, .catalog-search, .user-chip, .logout-button,
+      .button-secondary, .button-row .button-secondary, .pagination button,
+      .members-view > .pagination button, button.table-inline-action) {
+    background: var(--glass-control);
+  }
+
+  /* Let search inputs and table rows reveal their parent glass surface. */
+  :is(.member-search, .filter-search, .pos-search, .catalog-search) input,
+  tbody tr {
+    background: transparent;
+  }
+
+  th {
+    background: rgb(247 248 250 / 65%);
+  }
+
+  tbody tr:hover {
+    background: rgb(255 255 255 / 45%);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-surface: rgb(255 255 255 / 94%);
+    --glass-control: rgb(255 255 255 / 94%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-surface: #fff;
+    --glass-control: #fff;
+    --glass-filter: none;
+  }
+}
+
+.dashboard-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dashboard-kpi > div { min-width: 0; }
+.dashboard-trend { display: block; margin-top: 0.35rem; color: var(--muted); font-size: 0.75rem; }
+.dashboard-income-breakdown { color: var(--muted); font-size: 0.85rem; }
+.dashboard-overview { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; margin-top: 1.5rem; align-items: start; }
+.dashboard-panel { min-width: 0; padding: 1rem; }
+.dashboard-panel-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+.dashboard-panel-heading h2 { margin: 0; font-size: 1.1rem; }
+.dashboard-panel-heading a { color: var(--moicano-red); font-size: 0.8rem; }
+.dashboard-activity-list, .dashboard-stock-list { list-style: none; margin: 0; padding: 0; }
+.dashboard-activity-list { max-height: 420px; overflow-y: auto; }
+.dashboard-activity-list li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; align-items: center; gap: 0.65rem; padding: 0.7rem 0; border-bottom: 1px solid var(--line); font-size: 0.8rem; }
+.dashboard-activity-list a, .dashboard-stock-list a { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+.dashboard-activity-list time { color: var(--muted); font-size: 0.75rem; }
+.dashboard-member-initials { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: rgb(255 255 255 / 60%); }
+.dashboard-stock-count { color: var(--muted); font-size: 0.8rem; }
+.dashboard-stock-list li { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.8rem 0; border-bottom: 1px solid var(--line); font-size: 0.85rem; }
+.dashboard-stock-list li > div { min-width: 0; }
+.dashboard-stock-list small { display: block; color: var(--muted); font-size: 0.72rem; }
+.dashboard-stock-list strong { color: var(--moicano-red); text-align: right; white-space: nowrap; }
+.dashboard-quick-actions { display: grid; gap: 0.7rem; }
+.dashboard-inventory-link { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; font-size: 0.8rem; }
+@media (max-width: 1120px) {
+  .dashboard-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-overview > :first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 680px) {
+  .dashboard-kpis, .dashboard-overview { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-activity-list li { grid-template-columns: 32px minmax(0, 1fr) auto; }
+  .dashboard-activity-list time { grid-column: 2; grid-row: 2; }
+  .dashboard-activity-list .status-badge { grid-column: 3; grid-row: 1 / 3; }
 }
